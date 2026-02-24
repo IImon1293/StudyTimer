@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>集中力モンスター養成タイマー</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #3498db;
+            --primary-hover: #2980b9;
+            --danger: #e74c3c;
+            --danger-hover: #c0392b;
+            --success: #2ecc71;
+            --success-hover: #27ae60;
+            --bg: #f4f7f6;
+            --card-bg: #ffffff;
+            --text: #2c3e50;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            gap: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-top: 0;
+            color: var(--text);
+        }
+
+        /* タイマー表示 */
+        .timer-display {
+            font-size: 5rem;
+            font-weight: bold;
+            font-variant-numeric: tabular-nums;
+            margin: 20px 0;
+            transition: color 0.3s;
+        }
+
+        .timer-display.overrun {
+            color: var(--danger);
+        }
+
+        /* 褒め言葉 */
+        .praise-message {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #f39c12;
+            min-height: 1.5em;
+            margin-bottom: 15px;
+            opacity: 0;
+            transition: opacity 0.5s, transform 0.5s;
+            transform: translateY(10px);
+        }
+
+        .praise-message.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ボタン群 */
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            color: white;
+            background-color: var(--primary);
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        button.stop-btn {
+            background-color: var(--danger);
+            font-size: 1.2rem;
+            padding: 15px 30px;
+        }
+
+        button.stop-btn:hover {
+            background-color: var(--danger-hover);
+        }
+
+        button.break-btn {
+            background-color: var(--success);
+        }
+
+        button.break-btn:hover {
+            background-color: var(--success-hover);
+        }
+
+        /* カスタム設定 */
+        .custom-setting {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed #ccc;
+        }
+
+        .custom-setting input {
+            width: 60px;
+            padding: 5px;
+            font-size: 1rem;
+            text-align: right;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* グラフエリア */
+        .chart-container {
+            position: relative;
+            height: 250px;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="card" id="timer-section">
+            <h1>集中力モンスター養成タイマー 👾</h1>
+
+            <div id="praise-box" class="praise-message"></div>
+
+            <div id="timer-display" class="timer-display">00:00</div>
+
+            <div id="study-controls">
+                <p style="margin-bottom: 10px; font-size: 0.9rem; color: #7f8c8d;">目標時間を選択してスタート！</p>
+                <div class="btn-group" id="preset-buttons">
+                </div>
+
+                <div class="custom-setting">
+                    <input type="number" id="custom-time" min="1" placeholder="分">
+                    <button onclick="addCustomPreset()">追加</button>
+                </div>
+            </div>
+
+            <div id="active-controls" class="hidden">
+                <button class="stop-btn" onclick="stopTimer()">全集中終了！</button>
+            </div>
+
+            <div id="break-controls" class="hidden">
+                <p style="margin-bottom: 10px; font-size: 0.9rem; color: #27ae60;">お疲れ様！休憩しよう🍵</p>
+                <div class="btn-group">
+                    <button class="break-btn" onclick="startTimer(5 * 60, false)">5分 休憩</button>
+                    <button class="break-btn" onclick="startTimer(10 * 60, false)">10分 休憩</button>
+                    <button class="break-btn" onclick="startTimer(30 * 60, false)">30分 休憩</button>
+                    <button onclick="resetToStudy()">スキップして次へ</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h1>今週の頑張りログ 📊</h1>
+            <div class="chart-container">
+                <canvas id="logChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* --- 状態管理 --- */
+        let timerId = null;
+        let targetSeconds = 0;
+        let elapsedSeconds = 0;
+        let isStudyMode = true;
+        let audioContext = null;
+
+        // 褒め言葉リスト
+        const praiseMessages = [
+            "あ、集中力モンスター発見！👾",
+            "脳みそがフルスロットルすぎて煙出てない？💨",
+            "君の集中力、Wi-Fiより安定してるね。📶",
+            "ゾーンに入ってたね！さすが！✨",
+            "その集中力、国宝に指定したいレベル！🏆"
+        ];
+
+        // デフォルト＆カスタムプリセット
+        let presets = JSON.parse(localStorage.getItem('focusMonster_presets')) || [10, 30, 60];
+
+        /* --- 初期化処理 --- */
+        function init() {
+            renderPresets();
+            updateChart();
+        }
+
+        function renderPresets() {
+            const container = document.getElementById('preset-buttons');
+            container.innerHTML = '';
+            presets.forEach(mins => {
+                const btn = document.createElement('button');
+                btn.textContent = `${mins}分`;
+                btn.onclick = () => startTimer(mins * 60, true);
+                container.appendChild(btn);
+            });
+        }
+
+        function addCustomPreset() {
+            const input = document.getElementById('custom-time');
+            const val = parseInt(input.value);
+            if (val > 0 && !presets.includes(val)) {
+                presets.push(val);
+                presets.sort((a, b) => a - b);
+                localStorage.setItem('focusMonster_presets', JSON.stringify(presets));
+                renderPresets();
+            }
+            input.value = '';
+        }
+
+        /* --- タイマーロジック --- */
+        function startTimer(seconds, isStudy) {
+            // AudioContextの初期化（ユーザーアクション起点必須のためここで行う）
+            if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+            targetSeconds = seconds;
+            elapsedSeconds = 0;
+            isStudyMode = isStudy;
+
+            // UI切り替え
+            document.getElementById('study-controls').classList.add('hidden');
+            document.getElementById('break-controls').classList.add('hidden');
+            document.getElementById('active-controls').classList.remove('hidden');
+            document.getElementById('praise-box').classList.remove('show');
+            document.getElementById('timer-display').classList.remove('overrun');
+
+            updateDisplay();
+
+            if (timerId) clearInterval(timerId);
+            timerId = setInterval(() => {
+                elapsedSeconds++;
+                updateDisplay();
+
+                // アラーム発火タイミング
+                if (elapsedSeconds === targetSeconds) {
+                    playAlarm();
+                    if (!isStudyMode) {
+                        // 休憩モードは0で自動終了
+                        stopTimer();
+                    }
+                }
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerId);
+            timerId = null;
+
+            document.getElementById('active-controls').classList.add('hidden');
+            document.getElementById('timer-display').classList.remove('overrun');
+
+            if (isStudyMode && elapsedSeconds > 0) {
+                // 勉強ログの記録（分単位に変換して加算）
+                saveLog(elapsedSeconds);
+                updateChart();
+
+                // 褒めちぎり発動
+                const praiseBox = document.getElementById('praise-box');
+                const randomMsg = praiseMessages[Math.floor(Math.random() * praiseMessages.length)];
+                praiseBox.textContent = randomMsg;
+                praiseBox.classList.add('show');
+
+                // 休憩モードのUIへ移行
+                document.getElementById('break-controls').classList.remove('hidden');
+            } else {
+                // 休憩終了時、または0秒ストップ時
+                resetToStudy();
+            }
+
+            // タイマー表示を00:00に戻す
+            document.getElementById('timer-display').textContent = "00:00";
+        }
+
+        function resetToStudy() {
+            if (timerId) clearInterval(timerId);
+            document.getElementById('break-controls').classList.add('hidden');
+            document.getElementById('study-controls').classList.remove('hidden');
+            document.getElementById('praise-box').classList.remove('show');
+            document.getElementById('timer-display').textContent = "00:00";
+        }
+
+        function updateDisplay() {
+            const display = document.getElementById('timer-display');
+
+            if (elapsedSeconds <= targetSeconds) {
+                // カウントダウン中
+                const remain = targetSeconds - elapsedSeconds;
+                display.textContent = formatTime(remain);
+            } else {
+                // オーバーラン中（カウントアップ）
+                const over = elapsedSeconds - targetSeconds;
+                display.textContent = "+" + formatTime(over);
+                if (!display.classList.contains('overrun')) {
+                    display.classList.add('overrun');
+                }
+            }
+        }
+
+        function formatTime(totalSec) {
+            const m = Math.floor(totalSec / 60).toString().padStart(2, '0');
+            const s = (totalSec % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        /* --- アラーム音声 (Web Audio API) --- */
+        // 指定したミリ秒（ms）だけ待機する「sleep」関数を定義
+        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        async function playAlarm() {
+            if (!audioContext) return;
+            for (let i = 0; i < 10; i++) {
+                // ピピピッと3回鳴らす
+                for (let j = 0; j < 3; j++) {
+                    setTimeout(() => {
+                        const osc = audioContext.createOscillator();
+                        const gain = audioContext.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(880, audioContext.currentTime); // ラの音
+
+                        gain.gain.setValueAtTime(0.1, audioContext.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+
+                        osc.connect(gain);
+                        gain.connect(audioContext.destination);
+
+                        osc.start();
+                        osc.stop(audioContext.currentTime + 0.1);
+                    }, i * 150);
+                    if (i % 2 == 0) {
+                        await sleep(50);
+                    } else {
+                        await sleep(500);
+                    }
+                }
+
+            }
+        }
+
+        /* --- ログ保存とグラフ描画 (Chart.js) --- */
+        let logChartInstance = null;
+
+        function saveLog(seconds) {
+            const today = new Date().toLocaleDateString('ja-JP'); // YYYY/MM/DD
+            const logs = JSON.parse(localStorage.getItem('focusMonster_logs')) || {};
+
+            // 分単位で加算（小数点第1位まで）
+            const minutes = Math.round((seconds / 60) * 10) / 10;
+            logs[today] = (logs[today] || 0) + minutes;
+
+            localStorage.setItem('focusMonster_logs', JSON.stringify(logs));
+        }
+
+        function updateChart() {
+            const logs = JSON.parse(localStorage.getItem('focusMonster_logs')) || {};
+            const labels = [];
+            const data = [];
+
+            // 直近7日間のデータを生成
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const dateStr = d.toLocaleDateString('ja-JP');
+
+                // グラフのラベルは「MM/DD」にする
+                labels.push(`${d.getMonth() + 1}/${d.getDate()}`);
+                data.push(logs[dateStr] || 0);
+            }
+
+            const ctx = document.getElementById('logChart').getContext('2d');
+
+            if (logChartInstance) {
+                logChartInstance.data.labels = labels;
+                logChartInstance.data.datasets[0].data = data;
+                logChartInstance.update();
+            } else {
+                logChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: '勉強時間 (分)',
+                            data: data,
+                            backgroundColor: '#3498db',
+                            borderRadius: 4,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: { beginAtZero: true }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (context) {
+                                        return ` ${context.raw} 分 頑張った！`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // アプリ起動
+        init();
+
+    </script>
+</body>
+
+</html>
