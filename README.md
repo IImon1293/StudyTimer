@@ -1,4 +1,4 @@
-制作 : Gemini Pro
+<b>制作 : Gemini Pro<b>
 
 # StudyTimer  
 勉強時間を管理するためのタイマー
